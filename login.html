@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CareBridge - Hospital Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #F5F5F4; /* A neutral stone background */
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2392400e' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
+        .main-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        .form-wrapper.fade-in {
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .role-btn.active {
+            background-color: #92400e; /* amber-800 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .role-btn.inactive {
+            background-color: #ffffff; /* white */
+            color: #57534e; /* stone-600 */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .styled-input {
+            padding: 0.75rem 1rem;
+            background-color: #ffffff;
+            border: 1px solid #D6D3D1;
+            transition: all 0.3s;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .styled-input:focus {
+            border-color: #92400e;
+            box-shadow: 0 0 0 3px rgba(146, 64, 14, 0.15), 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        
+        .submit-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(50, 50, 93, .1), 0 3px 6px rgba(0, 0, 0, .08);
+        }
+
+        #patientFields {
+            transition: all 0.3s ease-in-out;
+            max-height: 200px;
+            overflow: hidden;
+        }
+        
+        #patientFields.hidden {
+             max-height: 0;
+             opacity: 0;
+             margin-top: 0 !important; /* Overrides space-y */
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <!-- Branding Header -->
+        <div class="text-center text-stone-800 mb-8">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M12 2a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H6a1 1 0 110-2h5V3a1 1 0 011-1z" clip-rule="evenodd" transform="translate(0, 8)" />
+                <path d="M3.682 11.28a1 1 0 01.236-1.39l8-6a1 1 0 011.164 0l8 6a1 1 0 01.236 1.39l-1.5 2a1 1 0 01-1.39-.236L18 12.5V19a1 1 0 01-1 1h-3a1 1 0 01-1-1v-4a1 1 0 00-1-1h-2a1 1 0 00-1 1v4a1 1 0 01-1 1H6a1 1 0 01-1-1v-6.5l-.828.924a1 1 0 01-1.39-.236l-1.5-2z" />
+            </svg>
+            <h1 class="text-4xl font-bold">CareBridge</h1>
+            <p class="mt-2 text-md text-stone-700">Connecting Patients, Doctors, and Care.</p>
+        </div>
+
+        <!-- Form Wrapper -->
+        <div class="w-full max-w-sm">
+            <h2 id="formTitle" class="text-2xl font-bold mb-6 text-center text-stone-800 hidden">User Login</h2>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="space-y-4 form-wrapper fade-in">
+                <input type="text" id="loginUsername" placeholder="Username" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600"/>
+                <input type="password" id="loginPassword" placeholder="Password" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600"/>
+                <button type="submit" class="submit-btn w-full bg-stone-700 text-white font-semibold py-2.5 rounded-lg hover:bg-stone-800 transition duration-300 shadow-md">
+                    Login
+                </button>
+            </form>
+
+            <!-- Signup Container -->
+            <div id="signupContainer" class="hidden form-wrapper">
+                <div id="userTypeSelection" class="grid grid-cols-3 gap-2">
+                    <button id="patientBtn" type="button" class="role-btn active px-2 py-2 text-sm font-semibold rounded-lg transition-colors">Patient</button>
+                    <button id="doctorBtn" type="button" class="role-btn inactive px-2 py-2 text-sm font-semibold rounded-lg transition-colors">Doctor</button>
+                    <button id="adminBtn" type="button" class="role-btn inactive px-2 py-2 text-sm font-semibold rounded-lg transition-colors">Admin</button>
+                </div>
+
+                <form id="signupForm" class="space-y-4 mt-4">
+                    <input type="text" id="signupUsername" placeholder="Username" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600"/>
+                    <input type="password" id="signupPassword" placeholder="Password" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600"/>
+                    
+                    <div id="patientFields" class="space-y-4">
+                        <input type="number" id="patientAge" placeholder="Age" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600" />
+                        <input type="tel" id="patientPhone" placeholder="Phone Number" class="styled-input w-full rounded-lg focus:outline-none transition duration-300 text-stone-800 placeholder-stone-600" />
+                    </div>
+
+                    <button type="submit" class="submit-btn w-full bg-amber-700 text-white font-semibold py-2.5 rounded-lg hover:bg-amber-800 transition duration-300 shadow-md">
+                        Sign Up
+                    </button>
+                </form>
+            </div>
+
+            <p class="text-center text-sm text-stone-700 mt-6">
+                <span id="toggleText">Don’t have an account?</span>
+                <button id="toggleBtn" class="text-amber-700 font-semibold hover:text-amber-900 transition duration-300">Sign Up</button>
+            </p>
+
+            <p id="message" class="text-center font-semibold text-stone-800 mt-4 min-h-[20px]"></p>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script>
+        const SUPABASE_URL = "https://rbzwxlfdtrheykgnksfm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiend4bGZkdHJoZXlrZ25rc2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzQ1OTgsImV4cCI6MjA3MjMxMDU5OH0.NbrYY9Ou_LFjduCeUcw0QJCz9Q481BkHCG6OekGjNHU";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- UI Elements ---
+        const loginForm = document.getElementById("loginForm");
+        const signupContainer = document.getElementById("signupContainer");
+        const signupForm = document.getElementById("signupForm");
+        const toggleBtn = document.getElementById("toggleBtn");
+        const toggleText = document.getElementById("toggleText");
+        const formTitle = document.getElementById("formTitle"); // Title is now hidden, but logic can remain
+        const message = document.getElementById("message");
+        const patientBtn = document.getElementById("patientBtn");
+        const doctorBtn = document.getElementById("doctorBtn");
+        const adminBtn = document.getElementById("adminBtn");
+        const patientFields = document.getElementById("patientFields");
+
+        let currentRole = 'patient';
+
+        // --- Event Listeners ---
+        toggleBtn.addEventListener("click", () => {
+            message.textContent = "";
+            const isLoginVisible = !loginForm.classList.contains("hidden");
+
+            if (isLoginVisible) {
+                loginForm.classList.remove("fade-in");
+                loginForm.classList.add("hidden");
+                signupContainer.classList.remove("hidden");
+                signupContainer.classList.add("fade-in");
+                // formTitle.textContent = "Create Account";
+                toggleText.textContent = "Already have an account?";
+                toggleBtn.textContent = "Login";
+            } else {
+                signupContainer.classList.remove("fade-in");
+                signupContainer.classList.add("hidden");
+                loginForm.classList.remove("hidden");
+                loginForm.classList.add("fade-in");
+                // formTitle.textContent = "User Login";
+                toggleText.textContent = "Don’t have an account?";
+                toggleBtn.textContent = "Sign Up";
+            }
+        });
+
+        function setRole(role) {
+            currentRole = role;
+            [patientBtn, doctorBtn, adminBtn].forEach(btn => {
+                btn.classList.toggle('active', btn.id === `${role}Btn`);
+                btn.classList.toggle('inactive', btn.id !== `${role}Btn`);
+            });
+            patientFields.classList.toggle('hidden', role !== 'patient');
+        }
+
+        patientBtn.addEventListener("click", () => setRole('patient'));
+        doctorBtn.addEventListener("click", () => setRole('doctor'));
+        adminBtn.addEventListener("click", () => setRole('admin'));
+
+        // --- Signup Logic ---
+        signupForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            message.textContent = "";
+
+            const username = document.getElementById("signupUsername").value.trim();
+            const password = document.getElementById("signupPassword").value.trim();
+            const age = document.getElementById("patientAge").value.trim();
+            const phone_no = document.getElementById("patientPhone").value.trim();
+
+            if (!username || !password) {
+                message.textContent = "Username and password are required.";
+                message.style.color = "#ef4444"; // red-500
+                return;
+            }
+            if (currentRole === 'patient' && (!age || !phone_no)) {
+                message.textContent = "Please fill in all patient fields.";
+                message.style.color = "#ef4444"; // red-500
+                return;
+            }
+            
+            try {
+                // Check if username already exists before trying to sign up
+                const { data: existingUser, error: checkError } = await supabase
+                    .from('patient')
+                    .select('username')
+                    .eq('username', username)
+                    .single();
+
+                if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found, which is good.
+                    throw checkError;
+                }
+
+                if (existingUser) {
+                    message.textContent = "Username is already taken. Please choose another.";
+                    message.style.color = "#ef4444"; // red-500
+                    return;
+                }
+
+                // Create a unique, hidden email from the username to work with Supabase Auth
+                const email = `${username.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}@hospital.local`;
+
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                });
+
+                if (authError) throw authError;
+                if (!authData.user) throw new Error("Signup successful, but no user data returned.");
+
+                const userProfile = {
+                    id: authData.user.id,
+                    username: username,
+                    role: currentRole,
+                    email: email,
+                    age: currentRole === 'patient' ? parseInt(age) : null,
+                    phone_no: currentRole === 'patient' ? phone_no : null,
+                };
+
+                const { error: insertError } = await supabase.from('patient').insert([userProfile]);
+                if (insertError) throw insertError;
+
+                message.textContent = "Signup successful! Please login.";
+                message.style.color = "#22c55e"; // green-500
+                signupForm.reset();
+                setTimeout(() => toggleBtn.click(), 2000);
+
+            } catch (error) {
+                console.error("Signup error:", error);
+                message.textContent = `Signup failed: ${error.message}`;
+                message.style.color = "#ef4444"; // red-500
+            }
+        });
+
+        // --- Login Logic ---
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            message.textContent = "";
+            
+            const username = document.getElementById("loginUsername").value.trim();
+            const password = document.getElementById("loginPassword").value.trim();
+
+            if (!username || !password) {
+                message.textContent = "Please enter username and password.";
+                message.style.color = "#ef4444"; // red-500
+                return;
+            }
+
+            try {
+                // Step 1: Find the user's profile in the 'patient' table by their username.
+                const { data: profile, error: profileError } = await supabase
+                    .from('patient')
+                    .select('email, role')
+                    .eq('username', username)
+                    .single(); // Use .single() to get one record or an error
+
+                if (profileError || !profile) {
+                    throw new Error("Invalid username or password.");
+                }
+
+                // Step 2: Use the retrieved email to sign in with Supabase Auth.
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email: profile.email,
+                    password: password,
+                });
+
+                if (signInError) throw signInError;
+
+                // Step 3: Redirect based on the role found in the profile.
+                if (profile.role === 'patient') {
+                    window.location.href = 'patient.html';
+                } else if (profile.role === 'doctor') {
+                    window.location.href = 'doctor.html';
+                } else if (profile.role === 'admin') {
+                    window.location.href = 'admin.html';
+                } else {
+                    throw new Error("User role not recognized.");
+                }
+
+            } catch (error) {
+                console.error("Login error:", error);
+                message.textContent = "Login failed: Invalid username or password.";
+                message.style.color = "#ef4444"; // red-500
+            }
+        });
+    </script>
+</body>
+</html>
+

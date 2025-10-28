@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - CareBridge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1c1917; /* stone-900 */
+            color: #d6d3d1; /* stone-300 */
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background-color: rgba(28, 25, 23, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid rgba(68, 64, 60, 0.5);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            color: #fbbf24; /* amber-400 */
+            border-bottom-color: #fbbf24;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #292524; }
+        ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #78716c; }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #fbbf24;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <header class="bg-stone-900/80 backdrop-blur-sm border-b border-stone-800 sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-amber-400">CareBridge - Admin</h1>
+            <div>
+                <span id="welcomeMessage" class="text-stone-300 mr-4"></span>
+                <button id="logoutBtn" class="bg-red-800 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-300">Logout</button>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+        <section class="stats-grid">
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Total Patients</h3>
+                <p id="patientCount" class="text-5xl font-bold text-amber-400 mt-2">0</p>
+            </div>
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Total Doctors</h3>
+                <p id="doctorCount" class="text-5xl font-bold text-amber-400 mt-2">0</p>
+            </div>
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Appointments Today</h3>
+                <p id="todayAppointments" class="text-5xl font-bold text-amber-400 mt-2">0</p>
+            </div>
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Total Revenue</h3>
+                <p id="totalRevenue" class="text-5xl font-bold text-amber-400 mt-2">$0</p>
+            </div>
+        </section>
+
+        <div class="card">
+            <div class="border-b border-stone-700 mb-6">
+                <nav class="flex flex-wrap space-x-6">
+                    <button id="appointmentsTab" class="tab-btn active text-lg font-semibold pb-3 border-b-2 border-transparent">Appointments</button>
+                    <button id="availabilityTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Doctor Availability</button>
+                    <button id="manageUsersTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Manage Users</button>
+                    <button id="broadcastTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Broadcast Message</button>
+                    <button id="createPatientTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Create Patient</button>
+                    <button id="createAppointmentTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Create Appointment</button>
+                </nav>
+            </div>
+            
+            <div id="appointmentsContent" class="tab-content active">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 items-end">
+                    <div class="w-full">
+                        <label for="doctorFilter" class="text-sm font-medium text-stone-400">Filter by Doctor:</label>
+                        <select id="doctorFilter" class="w-full mt-1 px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+                    </div>
+                     <div class="w-full">
+                        <label for="dateFilter" class="text-sm font-medium text-stone-400">Filter by Date:</label>
+                        <input type="date" id="dateFilter" class="w-full mt-1 px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <button id="clearFiltersBtn" class="w-full md:w-auto px-4 py-2 rounded-lg bg-stone-700 text-stone-200 hover:bg-stone-600 font-semibold transition">Clear Filters</button>
+                </div>
+                <div id="appointmentsList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                    <div class="flex justify-center items-center h-40"><div class="loader"></div></div>
+                </div>
+            </div>
+
+            <div id="availabilityContent" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div>
+                        <label for="availDoctorSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Doctor</label>
+                        <select id="availDoctorSelect" class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+                    </div>
+                    <div>
+                        <label for="availDateSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Date</label>
+                        <input type="date" id="availDateSelect" class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                </div>
+                <div id="availabilityResults" class="mt-6 p-4 bg-stone-900 rounded-lg min-h-[100px]">
+                    <p class="text-stone-500">Select a doctor and date to see their available slots.</p>
+                </div>
+            </div>
+            
+            <div id="manageUsersContent" class="tab-content">
+                <input type="text" id="userSearch" placeholder="Search by username or email..." class="w-full mb-4 px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <div id="usersList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                     <div class="flex justify-center items-center h-40"><div class="loader"></div></div>
+                </div>
+            </div>
+            
+            <div id="broadcastContent" class="tab-content">
+                <form id="broadcastForm" class="space-y-4 max-w-lg mx-auto">
+                    <h3 class="text-xl font-bold text-amber-400 text-center">Send Announcement</h3>
+                    <textarea id="broadcastMessage" rows="5" placeholder="Type your message here..." required class="w-full p-4 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400"></textarea>
+                    <button type="submit" class="w-full bg-amber-500 text-stone-900 font-bold py-3 rounded-lg hover:bg-amber-400 transition duration-300">Send Broadcast</button>
+                </form>
+                <p id="broadcastMessageStatus" class="text-center font-semibold mt-4 min-h-[20px]"></p>
+            </div>
+
+            <div id="createPatientContent" class="tab-content">
+                 <form id="createPatientForm" class="space-y-4 max-w-md mx-auto">
+                    <h3 class="text-xl font-bold text-amber-400 text-center">Create New Patient</h3>
+                    <input type="text" id="patientUsername" placeholder="Enter Username" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <input type="password" id="patientPassword" placeholder="Create Password" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <input type="number" id="patientAge" placeholder="Age" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <input type="tel" id="patientPhone" placeholder="Phone Number" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    <button type="submit" class="w-full bg-amber-500 text-stone-900 font-bold py-3 rounded-lg hover:bg-amber-400 transition duration-300">Create Patient Account</button>
+                </form>
+                <p id="createPatientMessage" class="text-center font-semibold mt-4 min-h-[20px]"></p>
+            </div>
+
+            <div id="createAppointmentContent" class="tab-content">
+                 <form id="createAppointmentForm" class="space-y-4 max-w-md mx-auto">
+                    <h3 class="text-xl font-bold text-amber-400 text-center">Create New Appointment</h3>
+                    <div>
+                        <label for="apptPatientSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Patient</label>
+                        <select id="apptPatientSelect" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+                    </div>
+                    <div>
+                        <label for="apptDoctorSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Doctor</label>
+                        <select id="apptDoctorSelect" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+                    </div>
+                     <div>
+                        <label for="apptDateSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Date</label>
+                        <input type="date" id="apptDateSelect" required class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                    </div>
+                    <div>
+                        <label for="apptTimeSelect" class="block text-sm font-medium text-stone-400 mb-1">Select Time Slot</label>
+                        <select id="apptTimeSelect" required disabled class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"></select>
+                        <p id="apptTimeMessage" class="text-sm text-stone-500 mt-1 min-h-[20px]"></p>
+                    </div>
+                    <button type="submit" class="w-full bg-amber-500 text-stone-900 font-bold py-3 rounded-lg hover:bg-amber-400 transition duration-300">Create Appointment</button>
+                </form>
+                <p id="createAppointmentMessage" class="text-center font-semibold mt-4 min-h-[20px]"></p>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="editUserModal" class="modal-overlay">
+        <div class="card w-full max-w-md">
+            <h2 class="text-2xl font-bold text-amber-400 mb-4">Edit User</h2>
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-stone-400 mb-1">Username</label>
+                    <input type="text" id="editUsername" disabled class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 cursor-not-allowed">
+                </div>
+                <div class="mb-4">
+                    <label for="editUserRole" class="block text-sm font-medium text-stone-400 mb-1">Role</label>
+                    <select id="editUserRole" class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                        <option value="patient">Patient</option>
+                        <option value="doctor">Doctor</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="editUserPhone" class="block text-sm font-medium text-stone-400 mb-1">Phone Number</label>
+                    <input type="tel" id="editUserPhone" class="w-full px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                </div>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button type="button" id="cancelEditBtn" class="px-4 py-2 rounded-lg bg-stone-700 hover:bg-stone-600 font-semibold transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-stone-900 hover:bg-amber-400 font-bold transition">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script>
+        const SUPABASE_URL = "https://rbzwxlfdtrheykgnksfm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiend4bGZkdHJoZXlrZ25rc2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzQ1OTgsImV4cCI6MjA3MjMxMDU5OH0.NbrYY9Ou_LFjduCeUcw0QJCz9Q481BkHCG6OekGjNHU";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- UI Elements ---
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const patientCount = document.getElementById('patientCount');
+        const doctorCount = document.getElementById('doctorCount');
+        const todayAppointments = document.getElementById('todayAppointments');
+        const totalRevenue = document.getElementById('totalRevenue');
+        const appointmentsList = document.getElementById('appointmentsList');
+        const usersList = document.getElementById('usersList');
+        const userSearch = document.getElementById('userSearch');
+        const doctorFilter = document.getElementById('doctorFilter');
+        const dateFilter = document.getElementById('dateFilter');
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        const availDoctorSelect = document.getElementById('availDoctorSelect');
+        const availDateSelect = document.getElementById('availDateSelect');
+        const availabilityResults = document.getElementById('availabilityResults');
+        const createPatientForm = document.getElementById('createPatientForm');
+        const createPatientMessage = document.getElementById('createPatientMessage');
+        const broadcastForm = document.getElementById('broadcastForm');
+        const broadcastMessageStatus = document.getElementById('broadcastMessageStatus');
+        const editUserModal = document.getElementById('editUserModal');
+        const editUserForm = document.getElementById('editUserForm');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const createAppointmentForm = document.getElementById('createAppointmentForm');
+        const apptPatientSelect = document.getElementById('apptPatientSelect');
+        const apptDoctorSelect = document.getElementById('apptDoctorSelect');
+        const apptDateSelect = document.getElementById('apptDateSelect');
+        const apptTimeSelect = document.getElementById('apptTimeSelect');
+        const apptTimeMessage = document.getElementById('apptTimeMessage');
+        const createAppointmentMessage = document.getElementById('createAppointmentMessage');
+        
+        const tabs = {
+            appointments: { btn: document.getElementById('appointmentsTab'), content: document.getElementById('appointmentsContent') },
+            availability: { btn: document.getElementById('availabilityTab'), content: document.getElementById('availabilityContent') },
+            manageUsers: { btn: document.getElementById('manageUsersTab'), content: document.getElementById('manageUsersContent') },
+            broadcast: { btn: document.getElementById('broadcastTab'), content: document.getElementById('broadcastContent') },
+            createPatient: { btn: document.getElementById('createPatientTab'), content: document.getElementById('createPatientContent') },
+            createAppointment: { btn: document.getElementById('createAppointmentTab'), content: document.getElementById('createAppointmentContent') }
+        };
+
+        let currentUser = null;
+        let allAppointments = [];
+        let allUsers = [];
+        const APPOINTMENT_FEE = 50; // Assuming $50 per completed appointment
+
+        // --- Page Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+            
+            const { data: profile, error } = await supabase.from('patient').select('username, role').eq('id', user.id).single();
+            if (error || !profile || profile.role !== 'admin') {
+                alert('Access Denied. You are not an administrator.');
+                window.location.href = 'index.html';
+                return;
+            }
+            currentUser = user;
+            welcomeMessage.textContent = `Welcome, ${profile.username}!`;
+
+            await fetchData();
+            setupEventListeners();
+            openTab('appointments');
+
+            // Realtime listeners
+            supabase.channel('public:pat').on('postgres_changes', { event: '*', schema: 'public', table: 'pat' }, fetchData).subscribe();
+            supabase.channel('public:patient').on('postgres_changes', { event: '*', schema: 'public', table: 'patient' }, fetchData).subscribe();
+        });
+
+        async function fetchData() {
+            // Fetch all users
+            const { data: usersData } = await supabase.from('patient').select('*');
+            allUsers = usersData || [];
+            const doctors = allUsers.filter(u => u.role === 'doctor');
+            const patients = allUsers.filter(u => u.role === 'patient');
+            populateDoctorDropdowns(doctors);
+            populateCreationDropdowns(allUsers);
+            renderUsers();
+
+            // Fetch appointments
+            const { data: appointmentsData } = await supabase.from('pat').select('*');
+            allAppointments = appointmentsData || [];
+            
+            updateDashboardStats(patients.length, doctors.length);
+            renderAppointments();
+        }
+
+        function populateDoctorDropdowns(doctors) {
+            const options = '<option value="">All Doctors</option>' + doctors.map(d => `<option value="${d.id}">${d.username}</option>`).join('');
+            doctorFilter.innerHTML = options;
+            availDoctorSelect.innerHTML = '<option value="">Select a Doctor</option>' + doctors.map(d => `<option value="${d.id}">${d.username}</option>`).join('');
+        }
+        
+        function populateCreationDropdowns(users) {
+            const doctors = users.filter(u => u.role === 'doctor');
+            const patients = users.filter(u => u.role === 'patient');
+            const doctorOptions = '<option value="">Select a Doctor</option>' + doctors.map(d => `<option value="${d.id}">${d.username}</option>`).join('');
+            apptDoctorSelect.innerHTML = doctorOptions;
+            const patientOptions = '<option value="">Select a Patient</option>' + patients.map(p => `<option value="${p.id}">${p.username}</option>`).join('');
+            apptPatientSelect.innerHTML = patientOptions;
+        }
+
+        function setupEventListeners() {
+            logoutBtn.addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                window.location.href = 'index.html';
+            });
+
+            Object.keys(tabs).forEach(key => {
+                tabs[key].btn.addEventListener('click', () => openTab(key));
+            });
+
+            [doctorFilter, dateFilter].forEach(el => el.addEventListener('change', renderAppointments));
+            clearFiltersBtn.addEventListener('click', () => {
+                doctorFilter.value = '';
+                dateFilter.value = '';
+                renderAppointments();
+            });
+
+            [availDoctorSelect, availDateSelect].forEach(el => el.addEventListener('change', checkAvailability));
+            
+            createPatientForm.addEventListener('submit', handleCreatePatient);
+            broadcastForm.addEventListener('submit', handleBroadcast);
+            createAppointmentForm.addEventListener('submit', handleCreateAppointment);
+            [apptDoctorSelect, apptDateSelect].forEach(el => el.addEventListener('change', fetchAvailableSlotsForCreation));
+
+            userSearch.addEventListener('input', renderUsers);
+            
+            editUserForm.addEventListener('submit', handleUpdateUser);
+            cancelEditBtn.addEventListener('click', () => editUserModal.classList.remove('visible'));
+            editUserModal.addEventListener('click', (e) => {
+                if (e.target === editUserModal) editUserModal.classList.remove('visible');
+            });
+        }
+
+        function openTab(tabName) {
+            Object.values(tabs).forEach(({ btn, content }) => {
+                content.classList.remove('active');
+                btn.classList.remove('active', 'text-amber-400');
+                btn.classList.add('text-stone-400');
+            });
+            tabs[tabName].content.classList.add('active');
+            tabs[tabName].btn.classList.add('active', 'text-amber-400');
+            tabs[tabName].btn.classList.remove('text-stone-400');
+        }
+
+        function updateDashboardStats(totalPatients, totalDoctors) {
+            patientCount.textContent = totalPatients || 0;
+            doctorCount.textContent = totalDoctors || 0;
+            const today = new Date().toISOString().split("T")[0];
+            todayAppointments.textContent = allAppointments.filter(apt => apt.appointment_date === today).length;
+            const completedAppointments = allAppointments.filter(apt => apt.status === 'Completed').length;
+            totalRevenue.textContent = `$${(completedAppointments * APPOINTMENT_FEE).toLocaleString()}`;
+        }
+
+        function renderAppointments() {
+            let filtered = [...allAppointments];
+            if (doctorFilter.value) filtered = filtered.filter(a => a.doctor_id === doctorFilter.value);
+            if (dateFilter.value) filtered = filtered.filter(a => a.appointment_date === dateFilter.value);
+
+            if (filtered.length === 0) {
+                appointmentsList.innerHTML = `<p class="text-stone-500 text-center py-10">No appointments found.</p>`;
+                return;
+            }
+
+            const doctorMap = new Map(allUsers.filter(u=>u.role==='doctor').map(d => [d.id, d.username]));
+            appointmentsList.innerHTML = filtered.sort((a,b) => new Date(`${a.appointment_date}T${a.appointment_time}`) - new Date(`${b.appointment_date}T${b.appointment_time}`)).map(apt => `
+                <div class="border border-stone-700 rounded-lg p-3 bg-stone-900/50 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-amber-400">${apt.patient_name}</p>
+                        <p class="text-sm text-stone-400">with Dr. ${doctorMap.get(apt.doctor_id) || 'N/A'}</p>
+                        <p class="text-xs text-stone-500">${apt.appointment_date} at ${apt.appointment_time.substring(0,5)}</p>
+                    </div>
+                     <span class="text-xs font-semibold px-3 py-1 rounded-full ${
+                        apt.status === 'Scheduled' ? 'bg-yellow-900/50 text-yellow-300' : 
+                        apt.status === 'Completed' ? 'bg-green-900/50 text-green-300' :
+                        'bg-red-900/50 text-red-300'
+                    }">${apt.status}</span>
+                </div>
+            `).join('');
+        }
+        
+        function renderUsers() {
+            const searchTerm = userSearch.value.toLowerCase();
+            const filteredUsers = allUsers.filter(u => u.username.toLowerCase().includes(searchTerm) || u.email.toLowerCase().includes(searchTerm));
+            
+            if (filteredUsers.length === 0) {
+                usersList.innerHTML = `<p class="text-stone-500 text-center py-10">No users found.</p>`;
+                return;
+            }
+            
+            usersList.innerHTML = filteredUsers.map(user => `
+                <div class="border border-stone-700 rounded-lg p-3 bg-stone-900/50 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-amber-400">${user.username} <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-700 text-stone-300 capitalize">${user.role}</span></p>
+                        <p class="text-sm text-stone-400">${user.email}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="openEditModal('${user.id}')" class="px-3 py-1 text-sm rounded-md bg-stone-600 hover:bg-stone-500 transition">Edit</button>
+                        <button onclick="deleteUser('${user.id}', '${user.username}')" class="px-3 py-1 text-sm rounded-md bg-red-800 hover:bg-red-700 transition">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function checkAvailability() {
+            const doctorId = availDoctorSelect.value;
+            const date = availDateSelect.value;
+            if (!doctorId || !date) {
+                availabilityResults.innerHTML = `<p class="text-stone-500">Select a doctor and date.</p>`;
+                return;
+            }
+            
+            availabilityResults.innerHTML = '<div class="flex justify-center"><div class="loader"></div></div>';
+            
+            const { data, error } = await supabase.from('doctor_availability').select('time_slots').eq('doctor_id', doctorId).eq('available_date', date).single();
+
+            if (error || !data || data.time_slots.length === 0) {
+                 availabilityResults.innerHTML = `<p class="text-yellow-500">No available slots found.</p>`;
+                 return;
+            }
+
+            availabilityResults.innerHTML = `
+                <h3 class="font-semibold text-lg text-amber-400 mb-2">Available Slots:</h3>
+                <div class="flex flex-wrap gap-2">
+                    ${data.time_slots.map(slot => `<span class="bg-stone-700 text-stone-200 px-3 py-1 rounded-full text-sm">${slot}</span>`).join('')}
+                </div>
+            `;
+        }
+        
+        async function fetchAvailableSlotsForCreation() {
+            const doctorId = apptDoctorSelect.value;
+            const date = apptDateSelect.value;
+            
+            apptTimeSelect.innerHTML = '';
+            apptTimeSelect.disabled = true;
+            apptTimeMessage.textContent = '';
+
+            if (!doctorId || !date) return;
+
+            apptTimeMessage.textContent = 'Fetching slots...';
+            const { data, error } = await supabase.from('doctor_availability')
+                .select('time_slots')
+                .eq('doctor_id', doctorId)
+                .eq('available_date', date)
+                .single();
+
+            if (error || !data || data.time_slots.length === 0) {
+                 apptTimeMessage.textContent = 'No slots available for this day.';
+                 return;
+            }
+
+            apptTimeSelect.innerHTML = '<option value="">Select a time</option>' + data.time_slots.map(slot => `<option value="${slot}">${slot}</option>`).join('');
+            apptTimeSelect.disabled = false;
+            apptTimeMessage.textContent = 'Please select a time slot.';
+        }
+
+        async function handleCreatePatient(e) {
+            e.preventDefault();
+            createPatientMessage.textContent = '';
+             alert("This is a demo of user creation. In a real app, you would handle this more securely on the backend. Creating a user here will add them to the public 'patient' table but not Supabase Auth.");
+            const { error } = await supabase.from('patient').insert([{ 
+                username: document.getElementById('patientUsername').value,
+                // In a real app, never handle passwords on the client side like this.
+                // This is for demonstration only.
+                age: document.getElementById('patientAge').value,
+                phone_no: document.getElementById('patientPhone').value,
+                role: 'patient'
+            }]);
+             if (error) {
+                createPatientMessage.textContent = `Error: ${error.message}`;
+                createPatientMessage.style.color = '#f87171';
+            } else {
+                createPatientMessage.textContent = 'Patient profile created successfully!';
+                createPatientMessage.style.color = '#4ade80';
+                createPatientForm.reset();
+                fetchData();
+            }
+            setTimeout(() => { createPatientMessage.textContent = ''; }, 4000);
+        }
+        
+        async function handleCreateAppointment(e) {
+            e.preventDefault();
+            createAppointmentMessage.textContent = '';
+            const patientId = apptPatientSelect.value;
+            const doctorId = apptDoctorSelect.value;
+            const appointmentDate = apptDateSelect.value;
+            const appointmentTime = apptTimeSelect.value;
+            const selectedPatient = allUsers.find(u => u.id === patientId);
+            const patientName = selectedPatient ? selectedPatient.username : 'Unknown';
+            
+            const { error } = await supabase.from('pat').insert([{ 
+                patient_id: patientId, 
+                doctor_id: doctorId, 
+                appointment_date: appointmentDate, 
+                appointment_time: appointmentTime,
+                patient_name: patientName,
+                status: 'Scheduled'
+            }]);
+
+            if (error) {
+                createAppointmentMessage.style.color = '#f87171'; // red-400
+                createAppointmentMessage.textContent = `Error: ${error.message}`;
+            } else {
+                createAppointmentMessage.style.color = '#4ade80'; // green-400
+                createAppointmentMessage.textContent = 'Appointment created successfully!';
+                createAppointmentForm.reset();
+                apptTimeSelect.disabled = true;
+                apptTimeMessage.textContent = '';
+                await fetchData();
+                openTab('appointments');
+            }
+            setTimeout(() => createAppointmentMessage.textContent = '', 4000);
+        }
+
+        async function handleBroadcast(e) {
+            e.preventDefault();
+            const message = document.getElementById('broadcastMessage').value.trim();
+            if (!message) return;
+            
+            const { error } = await supabase.from('broadcasts').insert([{ message: message, sent_by: currentUser.id }]);
+            
+            broadcastMessageStatus.style.color = error ? '#f87171' : '#4ade80';
+            broadcastMessageStatus.textContent = error ? `Error: ${error.message}` : 'Broadcast sent successfully!';
+            if (!error) broadcastForm.reset();
+            setTimeout(() => broadcastMessageStatus.textContent = '', 4000);
+        }
+
+        function openEditModal(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return;
+            
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserPhone').value = user.phone_no || '';
+            editUserModal.classList.add('visible');
+        }
+
+        async function handleUpdateUser(e) {
+            e.preventDefault();
+            const userId = document.getElementById('editUserId').value;
+            const newRole = document.getElementById('editUserRole').value;
+            const newPhone = document.getElementById('editUserPhone').value;
+            
+            const { error } = await supabase.from('patient').update({ role: newRole, phone_no: newPhone }).eq('id', userId);
+            
+            if (error) {
+                alert(`Error updating user: ${error.message}`);
+            } else {
+                alert('User updated successfully!');
+                editUserModal.classList.remove('visible');
+                fetchData(); // Refresh data
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Are you sure you want to delete the user "${username}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            alert("Feature demonstration: In a real app, this would require a secure backend function to delete the user from Supabase Auth. Deleting from the public table only is not enough.");
+            
+            const { error } = await supabase.from('patient').delete().eq('id', userId);
+            if (error) {
+                alert(`Error deleting user: ${error.message}`);
+            } else {
+                alert('User deleted from the public table.');
+                fetchData();
+            }
+        }
+    </script>
+</body>
+</html>

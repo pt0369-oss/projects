@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - CareBridge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Flatpickr Date Picker CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background-color: rgba(28, 25, 23, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid rgba(68, 64, 60, 0.5);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .stats-grid .card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 0 20px rgba(210, 180, 140, 0.2);
+        }
+        .tab-btn.active { color: #D2B48C; border-bottom-color: #D2B48C; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #292524; }
+        ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #78716c; }
+
+        .loader {
+            width: 48px; height: 48px; border: 3px solid #D2B48C;
+            border-bottom-color: transparent; border-radius: 50%;
+            display: inline-block; box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content { transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+        
+        /* Date Picker Style Override */
+        .flatpickr-input {
+            background-color: #292524 !important;
+            border: 1px solid #57534e !important;
+            color: #d6d3d1 !important;
+        }
+        
+        /* Circular Time Selector */
+        .time-selector-container {
+            display: flex; justify-content: center; align-items: center;
+            margin-top: 1rem; min-height: 320px;
+        }
+        .time-slice {
+            fill: #44403c; stroke: #292524; stroke-width: 2;
+            cursor: pointer; transition: fill 0.2s ease;
+        }
+        .time-slice:hover { fill: #57534e; }
+        .time-slice.selected { fill: #D2B48C; }
+        .time-label {
+            fill: #d6d3d1; font-size: 14px; font-weight: 600;
+            pointer-events: none; text-anchor: middle; dominant-baseline: middle;
+        }
+        .time-slice.selected + .time-label { fill: black; }
+
+        /* Chat Widget Styles */
+        #chatWidgetBtn { position: fixed; bottom: 2rem; right: 2rem; z-index: 100; }
+        #chatPanel {
+            position: fixed; bottom: 6rem; right: 2rem; width: 380px; height: 500px;
+            z-index: 100; display: none; transform-origin: bottom right;
+        }
+        #chatPanel.open { display: flex; }
+        .chat-message { max-width: 80%; }
+        .chat-message.sent { background-color: #D2B48C; color: #1c1917; }
+        .chat-message.received { background-color: #44403c; }
+        .conversation-item.active { background-color: #44403c; }
+        .unread-dot { height: 8px; width: 8px; background-color: #f59e0b; border-radius: 50%; }
+        #chatNotification {
+             position: absolute; top: 0; right: 0; width: 12px; height: 12px;
+             background-color: #ef4444; border-radius: 50%; border: 2px solid #D2B48C;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-black text-stone-300">
+
+    <!-- Header -->
+    <header class="bg-black/80 backdrop-blur-sm border-b border-stone-800 sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-[#D2B48C]">CareBridge</h1>
+            <div>
+                <span id="welcomeMessage" class="text-stone-300 mr-4"></span>
+                <button id="logoutBtn" class="bg-red-800 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-300">Logout</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+        <!-- Statistics -->
+        <section class="stats-grid">
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Today's Appointments</h3>
+                <p id="todayCount" class="text-5xl font-bold text-[#D2B48C] mt-2">0</p>
+            </div>
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Upcoming This Week</h3>
+                <p id="weekCount" class="text-5xl font-bold text-[#D2B48C] mt-2">0</p>
+            </div>
+            <div class="card text-center">
+                <h3 class="text-lg font-semibold text-stone-400">Total Unique Patients</h3>
+                <p id="patientCount" class="text-5xl font-bold text-[#D2B48C] mt-2">0</p>
+            </div>
+        </section>
+
+        <!-- Tabbed Section -->
+        <div class="card">
+            <div class="border-b border-stone-700 mb-6">
+                <nav class="flex flex-wrap space-x-6">
+                    <button id="appointmentsTab" class="tab-btn active text-lg font-semibold pb-3 border-b-2 border-transparent">Appointments</button>
+                    <button id="availabilityTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Set Availability</button>
+                    <button id="recordsTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Patient Records</button>
+                    <button id="analyticsTab" class="tab-btn text-lg font-semibold pb-3 border-b-2 border-transparent text-stone-400">Analytics</button>
+                </nav>
+            </div>
+            
+            <div id="appointmentsContent" class="tab-content active">
+                <div class="flex flex-wrap gap-4 justify-end items-center mb-4">
+                    <label for="dateFilter" class="text-sm font-medium text-stone-400">View appointments for:</label>
+                    <input type="text" id="dateFilter" class="px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-stone-200" placeholder="Select a date...">
+                    <button id="clearFilterBtn" class="px-4 py-2 rounded-lg bg-stone-700 text-stone-200 hover:bg-stone-600 text-sm font-semibold transition">View All</button>
+                </div>
+                <div id="appointmentsList" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+            </div>
+
+            <div id="availabilityContent" class="tab-content">
+                <form id="availabilityForm" class="space-y-6">
+                    <div>
+                        <label for="availabilityDate" class="block text-sm font-medium text-stone-400 mb-1">Select Date</label>
+                        <input type="text" id="availabilityDate" name="availabilityDate" class="w-full px-4 py-2 rounded-lg bg-stone-800 border-stone-600 text-stone-200" placeholder="Select a date...">
+                    </div>
+                    <div id="timeSlotsContainer" class="time-selector-container">
+                        <p class="text-stone-500">Select a date to set availability.</p>
+                    </div>
+                    <button type="submit" class="w-full bg-[#D2B48C] text-black font-bold py-3 rounded-lg hover:bg-amber-300 transition">Save Availability</button>
+                </form>
+                <p id="availabilityMessage" class="text-center font-semibold mt-4 min-h-[20px]"></p>
+            </div>
+
+            <div id="recordsContent" class="tab-content">
+                <input type="text" id="patientSearch" placeholder="Search patients by name..." class="w-full mb-4 px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 focus:outline-none focus:ring-2 focus:ring-[#D2B48C]">
+                <div id="patientRecordsList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+            </div>
+            
+            <div id="analyticsContent" class="tab-content">
+                <div class="text-center py-16">
+                    <h3 class="text-xl font-bold text-stone-400">Analytics Dashboard</h3>
+                    <p class="text-stone-500 mt-2">This feature is coming soon!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Patient Details Modal -->
+    <div id="patientModal" class="modal-overlay">
+        <div class="modal-content card w-full max-w-2xl h-[80vh] flex flex-col">
+            <div class="flex-shrink-0 flex justify-between items-center mb-4 border-b border-stone-700 pb-3">
+                 <h2 id="modalPatientName" class="text-2xl font-bold text-[#D2B48C]">Patient Details</h2>
+                 <button id="closeModalBtn" class="text-stone-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2 space-y-6">
+                <div>
+                    <h3 class="text-sm font-semibold text-stone-400">Reason for Current Visit</h3>
+                    <p id="modalReason" class="text-stone-200 mt-1"></p>
+                </div>
+                <div class="border-t border-stone-700 pt-4">
+                    <h3 class="text-lg font-bold text-stone-300 mb-2">Clinical Notes</h3>
+                    <div id="modalNotesList" class="space-y-3 max-h-60 overflow-y-auto pr-1 mb-4"></div>
+                    <form id="addNoteForm">
+                        <textarea id="newNoteText" rows="3" class="w-full p-2 rounded-lg bg-stone-800 border border-stone-600" placeholder="Add a new note..."></textarea>
+                        <button type="submit" class="mt-2 px-4 py-2 text-sm rounded-lg bg-[#D2B48C] text-black font-bold hover:bg-amber-300 transition">Save Note</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Widget -->
+    <button id="chatWidgetBtn" class="bg-[#D2B48C] text-black rounded-full p-4 shadow-lg hover:bg-amber-300 transition relative">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+        <span id="chatNotification" class="hidden"></span>
+    </button>
+    <div id="chatPanel" class="card p-0 flex-col h-[500px] w-[380px] fixed bottom-24 right-8 shadow-2xl">
+        <div id="conversationView" class="flex flex-col h-full">
+            <h2 class="text-xl font-bold text-white p-4 border-b border-stone-700 flex-shrink-0">Conversations</h2>
+            <div id="conversationList" class="flex-grow overflow-y-auto"></div>
+        </div>
+        <div id="chatView" class="hidden flex-col h-full">
+            <div class="flex-shrink-0 flex items-center p-4 border-b border-stone-700">
+                <button id="backToConversations" class="mr-3 p-1 rounded-full hover:bg-stone-700"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" /></svg></button>
+                <h2 id="chatPatientName" class="text-lg font-bold text-white"></h2>
+            </div>
+            <div id="chatMessages" class="flex-grow p-4 space-y-4 overflow-y-auto flex flex-col"></div>
+            <form id="chatForm" class="flex-shrink-0 flex gap-2 p-4 border-t border-stone-700">
+                <input type="text" id="chatInput" class="flex-grow px-4 py-2 rounded-lg bg-stone-800 border-stone-600" placeholder="Type a message...">
+                <button type="submit" class="bg-[#D2B48C] text-black font-bold py-2 px-4 rounded-lg">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        const SUPABASE_URL = "https://rbzwxlfdtrheykgnksfm.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJiend4bGZkdHJoZXlrZ25rc2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3MzQ1OTgsImV4cCI6MjA3MjMxMDU5OH0.NbrYY9Ou_LFjduCeUcw0QJCz9Q481BkHCG6OekGjNHU";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const ui = {
+            welcomeMessage: document.getElementById('welcomeMessage'), logoutBtn: document.getElementById('logoutBtn'),
+            appointmentsList: document.getElementById('appointmentsList'), dateFilter: document.getElementById('dateFilter'), clearFilterBtn: document.getElementById('clearFilterBtn'),
+            todayCountEl: document.getElementById('todayCount'), weekCountEl: document.getElementById('weekCount'), patientCountEl: document.getElementById('patientCount'),
+            availabilityDate: document.getElementById('availabilityDate'), timeSlotsContainer: document.getElementById('timeSlotsContainer'), availabilityForm: document.getElementById('availabilityForm'), availabilityMessage: document.getElementById('availabilityMessage'),
+            patientModal: document.getElementById('patientModal'), closeModalBtn: document.getElementById('closeModalBtn'), modalPatientName: document.getElementById('modalPatientName'), modalReason: document.getElementById('modalReason'),
+            modalNotesList: document.getElementById('modalNotesList'), addNoteForm: document.getElementById('addNoteForm'), newNoteText: document.getElementById('newNoteText'),
+            patientSearch: document.getElementById('patientSearch'), patientRecordsList: document.getElementById('patientRecordsList'),
+            chat: {
+                widgetBtn: document.getElementById('chatWidgetBtn'), panel: document.getElementById('chatPanel'), notification: document.getElementById('chatNotification'),
+                convoView: document.getElementById('conversationView'), chatView: document.getElementById('chatView'), convoList: document.getElementById('conversationList'),
+                backBtn: document.getElementById('backToConversations'), patientName: document.getElementById('chatPatientName'), messages: document.getElementById('chatMessages'), form: document.getElementById('chatForm'), input: document.getElementById('chatInput'),
+            },
+            tabs: {
+                appointments: { btn: document.getElementById('appointmentsTab'), content: document.getElementById('appointmentsContent') },
+                availability: { btn: document.getElementById('availabilityTab'), content: document.getElementById('availabilityContent') },
+                records: { btn: document.getElementById('recordsTab'), content: document.getElementById('recordsContent') },
+                analytics: { btn: document.getElementById('analyticsTab'), content: document.getElementById('analyticsContent') },
+            }
+        };
+
+        let currentUser = null, allAppointments = [], allPatients = [], dateFilterInstance, availabilityDateInstance;
+        const allTimeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30', '16:00'];
+        let currentChatPatientId = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentUser = user;
+
+            const { data: profile } = await supabase.from('patient').select('username, role').eq('id', user.id).single();
+            if (!profile || profile.role !== 'doctor') { alert('Access Denied.'); window.location.href = 'index.html'; return; }
+            ui.welcomeMessage.textContent = `Welcome, Dr. ${profile.username}!`;
+            
+            initializeDatePickers();
+            await fetchData();
+            await setupChat();
+            setupEventListeners();
+            openTab('appointments');
+            
+            supabase.channel('public:pat:doctor').on('postgres_changes', { event: '*', schema: 'public', table: 'pat', filter: `doctor_id=eq.${currentUser.id}` }, fetchData).subscribe();
+        });
+
+        async function fetchData() {
+            await fetchAllAppointments();
+            await fetchAllPatients();
+        }
+
+        function initializeDatePickers() {
+            const commonOptions = { altInput: true, altFormat: "F j, Y", dateFormat: "Y-m-d" };
+            dateFilterInstance = flatpickr("#dateFilter", { ...commonOptions, defaultDate: "today" });
+            availabilityDateInstance = flatpickr("#availabilityDate", { ...commonOptions, minDate: "today" });
+        }
+
+        function setupEventListeners() {
+            ui.logoutBtn.addEventListener('click', async () => { await supabase.auth.signOut(); window.location.href = 'index.html'; });
+            Object.values(ui.tabs).forEach(({btn}) => btn.addEventListener('click', () => openTab(btn.id.replace('Tab',''))));
+            ui.dateFilter.addEventListener('change', renderAppointments);
+            ui.clearFilterBtn.addEventListener('click', () => { dateFilterInstance.clear(); renderAppointments(); });
+            ui.availabilityDate.addEventListener('change', fetchAvailabilityForDate);
+            ui.availabilityForm.addEventListener('submit', handleSaveAvailability);
+            ui.closeModalBtn.addEventListener('click', () => ui.patientModal.classList.remove('visible'));
+            ui.patientSearch.addEventListener('input', renderPatientsList);
+            
+            ui.chat.widgetBtn.addEventListener('click', () => ui.chat.panel.classList.toggle('open'));
+            ui.chat.backBtn.addEventListener('click', showConversationView);
+            ui.chat.form.addEventListener('submit', handleSendMessage);
+        }
+        
+        function openTab(tabName) {
+            Object.values(ui.tabs).forEach(({ btn, content }) => {
+                btn.classList.remove('active', 'text-[#D2B48C]', 'text-stone-400');
+                content.classList.remove('active');
+            });
+            ui.tabs[tabName].btn.classList.add('active', 'text-[#D2B48C]');
+            ui.tabs[tabName].content.classList.add('active');
+        }
+
+        async function fetchAllAppointments() {
+            const { data, error } = await supabase.from('pat').select('*').eq('doctor_id', currentUser.id);
+            if (error) { console.error("Error fetching appointments:", error); return; }
+            allAppointments = data;
+            renderAppointments();
+            updateDashboardStats();
+        }
+
+        async function fetchAllPatients() {
+            const { data, error } = await supabase.rpc('get_doctor_patients', { doc_id: currentUser.id });
+            if (error) { console.error("Error fetching patients:", error); return; }
+            allPatients = data;
+            renderPatientsList();
+        }
+
+        function renderAppointments() {
+            const filterValue = ui.dateFilter.value;
+            const filteredData = filterValue ? allAppointments.filter(apt => apt.appointment_date === filterValue) : allAppointments;
+            if (filteredData.length === 0) {
+                ui.appointmentsList.innerHTML = `<p class="text-stone-500 text-center py-10">No appointments for this selection.</p>`; return;
+            }
+            ui.appointmentsList.innerHTML = filteredData.sort((a,b) => a.appointment_time.localeCompare(b.appointment_time)).map(apt => `
+                <div class="border border-stone-700 rounded-lg p-4 bg-black/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <button onclick='openPatientModal("${apt.patient_id}", "${apt.patient_name}", ${JSON.stringify(apt.reason || 'N/A')})' class="font-bold text-[#D2B48C] hover:underline">${apt.patient_name}</button>
+                        <p class="text-sm text-stone-400">Time: ${apt.appointment_time.substring(0, 5)}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold px-3 py-1 rounded-full ${ apt.status === 'Scheduled' ? 'bg-yellow-900/50 text-yellow-300' : apt.status === 'Completed' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300' }">${apt.status}</span>
+                        <select onchange="updateStatus('${apt.id}', this.value)" class="text-xs bg-stone-800 border-stone-600 rounded-md p-1">
+                            <option value="Scheduled" ${apt.status === 'Scheduled' ? 'selected' : ''}>Scheduled</option> <option value="Completed" ${apt.status === 'Completed' ? 'selected' : ''}>Completed</option> <option value="Cancelled" ${apt.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </div>
+                </div>`).join('');
+        }
+
+        function renderPatientsList() {
+            const searchTerm = ui.patientSearch.value.toLowerCase();
+            const filtered = allPatients.filter(p => p.username.toLowerCase().includes(searchTerm));
+            if (filtered.length === 0) {
+                ui.patientRecordsList.innerHTML = `<p class="text-stone-500 text-center py-10">No patients found.</p>`; return;
+            }
+            ui.patientRecordsList.innerHTML = filtered.map(p => `
+                <div class="border border-stone-700 rounded-lg p-3 flex justify-between items-center">
+                    <p class="font-semibold">${p.username}</p>
+                    <button onclick='openPatientModal("${p.id}", "${p.username}", "N/A")' class="px-3 py-1 text-sm rounded-md bg-stone-600 hover:bg-stone-500">View History</button>
+                </div>`).join('');
+        }
+
+        function updateDashboardStats() {
+            const today = new Date().toISOString().split("T")[0];
+            const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
+            const nextWeekStr = nextWeek.toISOString().split("T")[0];
+            ui.todayCountEl.textContent = allAppointments.filter(apt => apt.appointment_date === today).length;
+            ui.weekCountEl.textContent = allAppointments.filter(apt => apt.appointment_date >= today && apt.appointment_date <= nextWeekStr && apt.status === 'Scheduled').length;
+            ui.patientCountEl.textContent = new Set(allAppointments.map(p => p.patient_id)).size;
+        }
+
+        async function openPatientModal(patientId, patientName, reason) {
+            ui.modalPatientName.textContent = patientName;
+            ui.modalReason.textContent = reason;
+            ui.addNoteForm.onsubmit = (e) => handleAddNote(e, patientId);
+            await loadPatientNotes(patientId);
+            ui.patientModal.classList.add('visible');
+        }
+
+        async function loadPatientNotes(patientId) {
+            ui.modalNotesList.innerHTML = `<div class="loader mx-auto"></div>`;
+            const { data } = await supabase.from('patient_notes').select(`*, doctor:patient(username)`).eq('patient_id', patientId).order('created_at', { ascending: false });
+            if (!data || data.length === 0) {
+                ui.modalNotesList.innerHTML = `<p class="text-stone-500 text-center">No notes for this patient yet.</p>`; return;
+            }
+            ui.modalNotesList.innerHTML = data.map(note => `
+                <div class="bg-stone-800 p-3 rounded-lg">
+                    <p class="text-stone-300">${note.note_text}</p>
+                    <p class="text-xs text-stone-500 mt-2 text-right">${new Date(note.created_at).toLocaleDateString()} - Dr. ${note.doctor.username}</p>
+                </div>`).join('');
+        }
+        
+        async function handleAddNote(e, patientId) {
+            e.preventDefault();
+            const noteText = ui.newNoteText.value;
+            if (!noteText.trim()) return;
+            const { error } = await supabase.from('patient_notes').insert({ patient_id: patientId, doctor_id: currentUser.id, note_text: noteText });
+            if (!error) { ui.newNoteText.value = ''; await loadPatientNotes(patientId); }
+        }
+
+        async function fetchAvailabilityForDate() {
+            const date = ui.availabilityDate.value;
+            if (!date) { ui.timeSlotsContainer.innerHTML = '<p class="text-stone-500">Select a date.</p>'; return; };
+            if (!ui.timeSlotsContainer.querySelector('svg')) renderCircularTimeSelector();
+            ui.timeSlotsContainer.querySelectorAll('.time-slice').forEach(s => s.classList.remove('selected'));
+            const { data } = await supabase.from('doctor_availability').select('time_slots').eq('doctor_id', currentUser.id).eq('available_date', date).single();
+            if (data && data.time_slots) {
+                data.time_slots.forEach(slot => ui.timeSlotsContainer.querySelector(`.time-slice[data-time="${slot}"]`)?.classList.add('selected'));
+            }
+        }
+
+        function renderCircularTimeSelector() {
+            const svgNS = "http://www.w3.org/2000/svg", svg = document.createElementNS(svgNS, "svg");
+            svg.setAttribute("viewBox", "0 0 300 300"); svg.setAttribute("width", "300"); svg.setAttribute("height", "300");
+            const centerX = 150, centerY = 150, radius = 130, labelRadius = 100, totalSlots = allTimeSlots.length, anglePerSlice = 360 / totalSlots;
+            const getCoords = (angle) => ({ x: centerX + radius * Math.cos((angle - 90) * Math.PI / 180), y: centerY + radius * Math.sin((angle - 90) * Math.PI / 180) });
+            
+            ui.timeSlotsContainer.innerHTML = '';
+            allTimeSlots.forEach((slot, i) => {
+                const startAngle = i * anglePerSlice, endAngle = (i + 1) * anglePerSlice, start = getCoords(startAngle), end = getCoords(endAngle);
+                const path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('d', `M ${centerX},${centerY} L ${start.x},${start.y} A ${radius},${radius} 0 ${anglePerSlice > 180 ? 1 : 0} 1 ${end.x},${end.y} Z`);
+                path.setAttribute('class', 'time-slice'); path.setAttribute('data-time', slot);
+                path.addEventListener('click', () => path.classList.toggle('selected'));
+                
+                const labelAngle = startAngle + (anglePerSlice / 2), labelRad = (labelAngle - 90) * Math.PI / 180;
+                const text = document.createElementNS(svgNS, 'text');
+                text.setAttribute('x', centerX + labelRadius * Math.cos(labelRad)); text.setAttribute('y', centerY + labelRadius * Math.sin(labelRad));
+                text.setAttribute('class', 'time-label'); text.textContent = slot;
+                
+                svg.appendChild(path); svg.appendChild(text);
+            });
+            ui.timeSlotsContainer.appendChild(svg);
+        }
+
+        async function handleSaveAvailability(e) {
+            e.preventDefault();
+            const date = ui.availabilityDate.value;
+            if (!date) { ui.availabilityMessage.textContent = 'Please select a date.'; ui.availabilityMessage.style.color = '#ef4444'; return; }
+            const selectedSlots = Array.from(document.querySelectorAll('.time-slice.selected')).map(s => s.dataset.time);
+            const { error } = await supabase.from('doctor_availability').upsert({ doctor_id: currentUser.id, available_date: date, time_slots: selectedSlots }, { onConflict: 'doctor_id, available_date' });
+            ui.availabilityMessage.style.color = error ? '#ef4444' : '#22c55e';
+            ui.availabilityMessage.textContent = error ? `Error: ${error.message}` : 'Availability Saved!';
+            setTimeout(() => ui.availabilityMessage.textContent = '', 3000);
+        }
+
+        async function updateStatus(appointmentId, newStatus) { await supabase.from('pat').update({ status: newStatus }).eq('id', appointmentId); }
+
+        // --- Chat Functions ---
+        async function setupChat() {
+            await renderConversationList();
+            supabase.channel('public:chat_messages:doctor').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `receiver_id=eq.${currentUser.id}`}, async (payload) => {
+                ui.chat.notification.classList.remove('hidden');
+                if (ui.chat.convoView.style.display !== 'none') await renderConversationList();
+                if (ui.chat.chatView.style.display === 'flex' && currentChatPatientId === payload.new.sender_id) appendMessage(payload.new);
+            }).subscribe();
+        }
+
+        async function renderConversationList() {
+            const { data: convs, error } = await supabase.rpc('get_conversations', { doc_id: currentUser.id });
+            if (error) return;
+            if (convs.length === 0) { ui.chat.convoList.innerHTML = '<p class="text-stone-500 text-center p-4">No conversations.</p>'; return; }
+            let unreadCount = 0;
+            ui.chat.convoList.innerHTML = convs.map(c => {
+                const hasUnread = c.unread_count > 0;
+                if(hasUnread) unreadCount++;
+                return `<div class="conversation-item flex items-center p-3 cursor-pointer hover:bg-stone-700/50" onclick="openChat('${c.patient_id}', '${c.patient_name}')" data-patient-id="${c.patient_id}">
+                    <div class="flex-grow"><p class="font-semibold">${c.patient_name}</p><p class="text-xs text-stone-400 truncate">${c.last_message || '...'}</p></div>
+                    <div class="unread-dot ${hasUnread ? '' : 'hidden'}"></div></div>`;
+            }).join('');
+            ui.chat.notification.classList.toggle('hidden', unreadCount === 0);
+        }
+
+        async function openChat(patientId, patientName) {
+            currentChatPatientId = patientId;
+            ui.chat.patientName.textContent = patientName;
+            ui.chat.chatView.style.display = 'flex'; ui.chat.convoView.style.display = 'none';
+            ui.chat.messages.innerHTML = '<div class="loader mx-auto my-auto"></div>';
+            await supabase.from('chat_messages').update({ is_read: true }).eq('receiver_id', currentUser.id).eq('sender_id', patientId);
+            await loadChatMessages(patientId);
+            await renderConversationList();
+        }
+        
+        async function loadChatMessages(patientId) {
+            const { data } = await supabase.from('chat_messages').select('*').or(`(sender_id.eq.${currentUser.id},receiver_id.eq.${patientId}),(sender_id.eq.${patientId},receiver_id.eq.${currentUser.id})`).order('created_at');
+            ui.chat.messages.innerHTML = ''; data.forEach(msg => appendMessage(msg));
+        }
+
+        function appendMessage(msg) {
+            const isSent = msg.sender_id === currentUser.id;
+            ui.chat.messages.innerHTML += `<div class="chat-message p-3 rounded-lg ${isSent ? 'sent self-end' : 'received self-start'}">${msg.message_text}</div>`;
+            ui.chat.messages.scrollTop = ui.chat.messages.scrollHeight;
+        }
+
+        async function handleSendMessage(e) {
+            e.preventDefault();
+            const messageText = ui.chat.input.value.trim();
+            if (!messageText || !currentChatPatientId) return;
+            const message = { sender_id: currentUser.id, receiver_id: currentChatPatientId, message_text: messageText, is_read: false };
+            ui.chat.input.value = ''; appendMessage(message);
+            await supabase.from('chat_messages').insert([message]);
+        }
+
+        async function showConversationView() {
+            ui.chat.chatView.style.display = 'none'; ui.chat.convoView.style.display = 'flex';
+            currentChatPatientId = null; await renderConversationList();
+        }
+    </script>
+</body>
+</html>
